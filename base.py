@@ -183,7 +183,7 @@ class FourDimensionalData:
         )
 
     def calculate_virtual_reconstruction(
-        self, mask, n=None, recenter=False, side=50, sigma=3.0
+        self, mask, n=None, recenter=False, integrate=True, side=50, sigma=3.0
     ):
         """
 
@@ -200,6 +200,9 @@ class FourDimensionalData:
         recenter: bool
             If True then the direct beam position is computed and the mask is recentered on this location.
             It is assumed that mask is initially centered on the center of each frame.
+        integrate: bool
+            If True then the extracted intensity from each point in mask is integrated (summed).
+            If False then the extracted intensities from each point in mask are returned as an array.
         side: int
             Box side size for computing the central beam location.
         sigma: float
@@ -245,7 +248,11 @@ class FourDimensionalData:
             else:
                 mask_temp = mask
 
-            intensities.append(frame[mask_temp].sum())
+            # extract intensities from frame
+            _intensities = frame[mask_temp]
+            if integrate:
+                _intensities = _intensities.sum()
+            intensities.append(_intensities)
 
         if recenter:
             # write to file after using all frames
