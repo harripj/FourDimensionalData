@@ -11,6 +11,10 @@ import numpy as np
 from numpy.typing import DTypeLike
 import math
 from matplotlib import pyplot as plt
+from skimage import draw
+
+
+from .utils import find_direct_beam, recenter_mask
 
 
 @dataclass
@@ -25,9 +29,12 @@ class FourDimensionalData:
 
     def __post_init__(self):
         self._scan_offset = 0  # in frames, used for TVIPS, for example
-
         self._frame_mean = None
         self._frame_max = None
+        self._vbf_intensities = None
+        self._direct_beam_coordinates = np.full(
+            (len(self), len(self.frame_shape)), -1
+        )  # -1 meaning not calculated
 
     def read_frame(self, n):
         raise NotImplementedError("read_frame must be implemented by subclass.")
@@ -112,14 +119,149 @@ class FourDimensionalData:
 
         return self._frame_mean
 
+    @property
+    def vbf_intensities(self):
+        return self._vbf_intensities
+
+    @vbf_intensities.setter
+    def vbf_intensities(self, x):
+        assert len(x) == len(
+            self
+        ), f"VBF intensities with shape: {len(x)} are not defined for every frame: {len(self)}."
+        self._vbf_intensities = np.asarray(x)
+
+    @property
+    def direct_beam_coordinates(self):
+        return self._direct_beam_coordinates
+
+    @direct_beam_coordinates.setter
+    def direct_beam_coordinates(self, c):
+        assert len(c) == len(
+            self
+        ), f"Cooridnates with shape: {len(c)} are not defined for every frame: {len(self)}."
+        c = np.asarray(c)
+        assert c.shape[-1] == len(
+            self.frame_shape
+        ), f"Coordinates with shape: {c.shape} should be defined for each frame dimension: {len(self.frame_shape)}."
+        self._direct_beam_coordinates = c
+
+    def calculate_virtual_bright_field_reconstruction(
+        self,
+        radius=5,
+        n=None,
+        recenter=False,
+        side=30,
+        sigma=3.0,
+    ):
+        """
+
+        Calculate virtual bright field reconstruction, accessible at self.vbf_intensities.
+
+        Parameters
+        ----------
+        radius: float
+            The VBF aperture radius in pixels.
+        n: None or array-like
+            Frame numbers to compute.
+            If None then all frames are computed.
+        recenter: bool
+            If True then the direct beam position is computed and the mask is recentered on this location.
+            It is assumed that mask is initially centered on the center of each frame.
+        side: int
+            Box side size for computing the central beam location.
+        sigma: float
+            Gaussian parameter for the recentering algorithm.
+
+        """
+
+        # compute vbf
+        center = (i / 2.0 for i in self.frame_shape)
+        coords = draw.disk(center, radius=radius, shape=self.frame_shape)
+
+        self.vbf_intensities = self.calculate_virtual_reconstruction(
+            coords, n, recenter=recenter, side=side, sigma=sigma
+        )
+
+    def calculate_virtual_reconstruction(
+        self, mask, n=None, recenter=False, side=50, sigma=3.0
+    ):
+        """
+
+        Calculate virtual reconstruction from a mask.
+
+        Parameters
+        ----------
+        mask: (M, N) ndarray or (N, ndim) tuple of arrays
+            If mask is ndarray, it must be the same shape as frame.
+            If tuple or arrays, these arrays represent coordinates within the frame.
+        n: None or array-like
+            Frame numbers to compute.
+            If None then all frames are computed.
+        recenter: bool
+            If True then the direct beam position is computed and the mask is recentered on this location.
+            It is assumed that mask is initially centered on the center of each frame.
+        side: int
+            Box side size for computing the central beam location.
+        sigma: float
+            Gaussian parameter for the recentering algorithm.
+
+        Returns
+        -------
+        intensities: (n,) ndarray-like
+            The reconstructed intensities.
+
+        """
+        # check inputs
+        if isinstance(mask, np.ndarray):
+            assert (
+                mask.shape == self.frame_shape
+            ), f"mask shape: {mask.shape} does not equal frame shape: {self.frame_shape}."
+        elif isinstance(mask, tuple):
+            assert len(mask) == len(
+                self.frame_shape
+            ), f"mask has incorrect dimensionality: {len(mask)}."
+        else:
+            raise ValueError("mask must be ndarray or tuple of integer arrays.")
+
+        # get direct beam coords to avoid re-reads
+        dbc = self.direct_beam_coordinates
+        # init output
+        intensities = []
+
+        for i, (frame, num) in enumerate(self.read_frame(n, return_index=True)):
+            if recenter:
+                # if the data has not been written, ie. -1
+                if (dbc[num] < 0).any():
+                    center = find_direct_beam(frame, side, sigma)
+                    # update center_location and unmask array
+                    dbc[num] = center
+                # otherwise read
+                else:
+                    center = dbc[num]
+
+                mask_temp = recenter_mask(
+                    mask, center, tuple(i // 2 for i in frame.shape)
+                )
+            else:
+                mask_temp = mask
+
+            intensities.append(frame[mask_temp].sum())
+
+        if recenter:
+            # write to file after using all frames
+            self.direct_beam_coordinates = dbc
+
+        return intensities
+
     def __getitem__(self, ij):
         if not isinstance(ij, (tuple, list, np.ndarray)) or not len(ij) == 2:
             raise ValueError("ij should be iterable of array of ints (i, j).")
 
-        # spoof numpy slicing onto grid of coords and then extract coords
-        grid = np.dstack(np.mgrid[: self.scan_y, : self.scan_x])
+        # calculate (i, j, 2) grid of scan coords useful for slicing
+        scan_grid = np.dstack(np.mgrid[: self.scan_y, : self.scan_x])
+
         # index grid of coords and get all ij coords to create n
-        _ij = grid[ij]
+        _ij = scan_grid[ij]
         ij = np.stack((_ij[..., 0].ravel(), _ij[..., 1].ravel()))
         n = self.frame_index_from_ij(ij)
 
