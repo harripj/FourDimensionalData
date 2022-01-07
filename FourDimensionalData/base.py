@@ -1,18 +1,18 @@
 from dataclasses import dataclass
+import math
 from pathlib import Path
 from typing import Union
+
 from ipywidgets.widgets import (
     interactive,
     Checkbox,
     FloatRangeSlider,
     IntSlider,
 )
+from matplotlib import pyplot as plt
 import numpy as np
 from numpy.typing import DTypeLike
-import math
-from matplotlib import pyplot as plt
 from skimage import draw
-
 
 from .utils import find_direct_beam, recenter_mask
 
@@ -88,7 +88,8 @@ class FourDimensionalData:
 
     @property
     def number_of_frames(self):
-        """Total number of frames within dataset as calculated by the scan parameters."""
+        """Total number of frames within dataset as calculated by the
+        scan parameters."""
         return math.prod(self.shape) + self.scan_offset
 
     @property
@@ -154,8 +155,8 @@ class FourDimensionalData:
         sigma=3.0,
     ):
         """
-
-        Calculate virtual bright field reconstruction, accessible at self.vbf_intensities.
+        Calculate virtual bright field reconstruction, accessible at
+        self.vbf_intensities.
 
         Parameters
         ----------
@@ -165,8 +166,9 @@ class FourDimensionalData:
             Frame numbers to compute.
             If None then all frames are computed.
         recenter: bool
-            If True then the direct beam position is computed and the mask is recentered on this location.
-            It is assumed that mask is initially centered on the center of each frame.
+            If True then the direct beam position is computed and the
+            mask is recentered on this location. It is assumed that mask
+            is initially centered on the center of each frame.
         side: int
             Box side size for computing the central beam location.
         sigma: float
@@ -193,16 +195,20 @@ class FourDimensionalData:
         ----------
         mask: (M, N) ndarray or (N, ndim) tuple of arrays
             If mask is ndarray, it must be the same shape as frame.
-            If tuple or arrays, these arrays represent coordinates within the frame.
+            If tuple or arrays, these arrays represent coordinates
+            within the frame.
         n: None or array-like
             Frame numbers to compute.
             If None then all frames are computed.
         recenter: bool
-            If True then the direct beam position is computed and the mask is recentered on this location.
-            It is assumed that mask is initially centered on the center of each frame.
+            If True then the direct beam position is computed and the
+            mask is recentered on this location. It is assumed that mask
+            is initially centered on the center of each frame.
         integrate: bool
-            If True then the extracted intensity from each point in mask is integrated (summed).
-            If False then the extracted intensities from each point in mask are returned as an array.
+            If True then the extracted intensity from each point in mask
+            is integrated (summed). If False then the extracted
+            intensities from each point in mask are returned as an
+            array.
         side: int
             Box side size for computing the central beam location.
         sigma: float

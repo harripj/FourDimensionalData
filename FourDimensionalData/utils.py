@@ -1,12 +1,86 @@
+from itertools import product
+
 import numpy as np
 from scipy import ndimage
 from skimage import feature
 
 
+def bin_box(arr, factor, axis=None, dtype=False):
+    """
+    Use box averaging to bin the images.
+
+    Parameters
+    ----------
+    arr: ndarray
+        Input array to box.
+    factor: int
+        The binning factor.
+    axis: None, int, or tuple of ints
+        Axis or axes to apply binning to.
+        If None then all axes are binned.
+    keep_dtype: bool or dtype
+        If True then the output data type will be the same as arr.
+        If False then the output type deafults to np.float.
+        If dtype then this data type will be forced.
+
+
+    Returns
+    -------
+    binned: ndarray
+        The binned array.
+    """
+    if factor == 1:
+        # no binning required
+        return arr
+
+    arr = np.asarray(arr)
+
+    if axis is None:
+        axis = tuple(range(arr.ndim))
+    else:
+        if isinstance(axis, (int, np.integer)):
+            axes = (axis,)
+        else:
+            assert isinstance(
+                axis, (list, tuple)
+            ), "axes must be either int, list, or tuple."
+
+    axis = tuple(a if a >= 0 else a + arr.ndim for a in axis)  # handle negative indices
+    assert max(axis) <= arr.ndim, "axes must be within arr.ndim."
+    assert all(
+        isinstance(i, (int, np.integer)) for i in axis
+    ), "All axes must be integers."
+
+    assert all(
+        not arr.shape[i] % factor for i in filter(lambda x: x is not None, axis)
+    ), f"array shape is not factorisable by factor {factor}."
+
+    # should work ndim
+    slices = []
+    for v in product(range(factor), repeat=len(axis)):
+        # calculate all slicing offsets in all dimensions
+        v = iter(v)
+        temp = []
+        for i in range(arr.ndim):
+            # add slice object if axes is specified, otherwise no slicing
+            temp.append(slice(next(v), None, factor) if i in axis else slice(None))
+        slices.append(tuple(temp))
+
+    # sort output data type
+    if dtype is True:
+        dtype = arr.dtype
+    elif dtype is False:
+        dtype = None
+    # otherwise assume a valid data type
+
+    # stack the offset slices and take mean down stack axis to finish binning
+    return np.stack(tuple(arr[s] for s in slices), axis=0).mean(axis=0).astype(dtype)
+
+
 def find_direct_beam(frame, side=30, sigma=3.0, refine=True, **kwargs):
     """
-
-    Find the direct beam within a box from the center of the frame by blurring and getting the peak.
+    Find the direct beam within a box from the center of the frame by
+    blurring and getting the peak.
 
     Parameters
     ----------
@@ -17,7 +91,8 @@ def find_direct_beam(frame, side=30, sigma=3.0, refine=True, **kwargs):
     sigma: float
         The Gaussian constant.
     refine: bool
-        If True the direct beam position is further refined by its center of mass.
+        If True the direct beam position is further refined by its
+        center of mass.
     kwargs:
         Passed to skimage.feature.peak_local_max.
         Defaults are exclude_border=1, threshold_rel=0.1.
@@ -88,13 +163,14 @@ def recenter_mask(mask, new_center, old_center):
     Parameters
     ----------
     mask: (M, N) ndarray or (N, ndim) tuple of arrays
-        If mask is ndarray, it must be the same shape as frame.
-        If tuple or arrays, these arrays represent coordinates within the frame.
-        Note that if mask is ndarray the mask is just rolled through shift.
+        If mask is ndarray, it must be the same shape as frame. If tuple
+        of arrays, these arrays represent coordinates within the frame.
+        Note that if mask is ndarray the mask is just rolled through
+        shift.
     new_center, old_center: iterable of ints
         The new and old center location of the mask.
-        The shift is calculated as the difference between these two values.
-        Must have the same length as mask.ndim.
+        The shift is calculated as the difference between these two
+        values. Must have the same length as mask.ndim.
 
     Returns
     -------
@@ -120,7 +196,8 @@ def recenter_mask(mask, new_center, old_center):
 def roll_array_subpixel(arr, shift, mode="edge"):
     """
     Shift and array by a subpixel amount using local averaging.
-    This method uses Manhattan distances and therefore retains local center of mass.
+    This method uses Manhattan distances and therefore retains local
+    center of mass.
 
     Parameters
     ----------
