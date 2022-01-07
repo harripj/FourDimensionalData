@@ -8,7 +8,7 @@ from scipy import constants
 from tqdm.auto import tqdm
 
 from KED.microscope import electron_wavelength
-from .base import FourDimensionalData
+from ..base import FourDimensionalData
 
 ENDIANESS = "<"
 FRAME_OFFSET = 6  # each frame has 6 byte offset
