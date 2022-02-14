@@ -1,12 +1,5 @@
 from itertools import chain
 from setuptools import setup, find_packages
-from FourDimensionalData import (
-    __name__,
-    __version__,
-    __author__,
-    __author_email__,
-    __description__,
-)
 
 # Projects with optional features for building the documentation and running
 # tests. From setuptools:
@@ -29,12 +22,12 @@ extra_feature_requirements["dev"] = ["black", "manifix", "pre-commit >= 1.16"] +
 )
 
 setup(
-    name=__name__,
-    version=str(__version__),
+    name="FourDimensionalData",
+    version="0.1",
     license="All rights reserved",
-    author=__author__,
-    author_email=__author_email__,
-    description=__description__,
+    author="harripj",
+    author_email="harrison.p.j@icloud.com",
+    description="Readers for 4-dimensional data files.",
     long_description=open("README.md").read(),
     classifiers=[
         "Programming Language :: Python :: 3",

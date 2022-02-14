@@ -217,6 +217,7 @@ def read_frame(fname, n, endianess=ENDIANESS, verbose=True, return_index=False):
 
 class BLO(FourDimensionalData):
     def __init__(self, fname):
+        """Read data from ASTAR .blo blockfile."""
         self.header = read_header(fname)
 
         scan_shape = (int(self.header["NY"]), int(self.header["NX"]))
