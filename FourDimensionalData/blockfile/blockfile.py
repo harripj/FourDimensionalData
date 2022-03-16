@@ -237,6 +237,12 @@ class BLO(FourDimensionalData):
             dtype,
         )
 
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__} {self.scan_shape} "
+            + f"{self.frame_shape} {self.file.stem}"
+        )
+
     @property
     def electron_voltage(self):
         """Return electron beam voltage in kV."""
