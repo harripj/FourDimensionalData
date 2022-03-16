@@ -28,6 +28,7 @@ class FourDimensionalData:
     dtype: DTypeLike
 
     def __post_init__(self):
+        self.file = Path(self.file)
         self._scan_offset = 0  # in frames, used for TVIPS, for example
         self._frame_mean = None
         self._frame_max = None
