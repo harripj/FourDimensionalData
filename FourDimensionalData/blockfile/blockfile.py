@@ -108,7 +108,13 @@ def read_vbf(fname, endianess=ENDIANESS):
 
 
 def _read_frame(
-    fname, n, header=None, endianess=ENDIANESS, progressbar=True, return_index=False
+    fname,
+    n,
+    header=None,
+    endianess=ENDIANESS,
+    progressbar=True,
+    return_index=False,
+    signal=None,
 ):
     f"""
     Worker function to yield frames from .blo file.
@@ -128,12 +134,17 @@ def _read_frame(
         If True then a progressbar is shown.
     return_index: bool
         If True then each frame's index within the file is also returned.
+    signal: QSignal, optional
+        If provided then a signal is emitted on each iteration.
 
     Yields
     ------
     frame or (frame, index) depending on the value of return_index.
 
     """
+    if signal is not None and not hasattr(signal, "emit"):
+        raise TypeError("signal must have .emit function, ie. QSignal.")
+
     with open(fname, "rb") as f:
         if header is None:
             header = sarray2dict(
@@ -147,7 +158,8 @@ def _read_frame(
         f.seek(header["Data_offset_2"])
 
         offset_previous = 0
-        for num in tqdm(n, disable=not progressbar):
+        total = len(n)
+        for i, num in enumerate(tqdm(n, disable=not progressbar)):
             offset = num * (fsize + FRAME_OFFSET) + FRAME_OFFSET
             frame = np.fromfile(
                 f, dtype=endianess + "u1", count=fsize, offset=offset - offset_previous
@@ -159,8 +171,13 @@ def _read_frame(
             yield out
             offset_previous = fsize + offset
 
+            if signal is not None:
+                signal.emit(int(100 * (i + 1) / total))
 
-def read_frame(fname, n, endianess=ENDIANESS, verbose=True, return_index=False):
+
+def read_frame(
+    fname, n, endianess=ENDIANESS, verbose=True, return_index=False, signal=None
+):
     """
     Read frame(s) from .blo file.
 
@@ -177,6 +194,8 @@ def read_frame(fname, n, endianess=ENDIANESS, verbose=True, return_index=False):
         Display verbose information.
     return_index: bool
         If True then each frame's index within the file is also returned.
+    signal: QSignal, optional
+        If provided then a signal is emitted on each iteration.
 
     Returns or Yields
     -----------------
@@ -206,6 +225,7 @@ def read_frame(fname, n, endianess=ENDIANESS, verbose=True, return_index=False):
         endianess=endianess,
         progressbar=progressbar,
         return_index=return_index,
+        signal=signal
     )
 
     if len(n) == 1:
@@ -286,7 +306,9 @@ class BLO(FourDimensionalData):
 
         return out
 
-    def read_frame(self, n, endianess="<", verbose=True, return_index=False):
+    def read_frame(
+        self, n, endianess="<", verbose=True, return_index=False, signal=None
+    ):
         """
         Read frame(s) from .blo file.
 
@@ -303,6 +325,8 @@ class BLO(FourDimensionalData):
             Display verbose information.
         return_index: bool
             If True then each frame's index within the file is also returned.
+        signal: QSignal, optional
+            If provided then a signal is emitted on each iteration.
 
         Returns or Yields
         -----------------
@@ -336,6 +360,7 @@ class BLO(FourDimensionalData):
             endianess=endianess,
             progressbar=progressbar,
             return_index=return_index,
+            signal=signal,
         )
 
         if len(n) == 1:
