@@ -1,3 +1,4 @@
+import abc
 from dataclasses import dataclass
 import math
 from pathlib import Path
@@ -18,7 +19,7 @@ from .utils import find_direct_beam, recenter_mask
 
 
 @dataclass
-class FourDimensionalData:
+class FourDimensionalData(abc.ABC):
     file: Union[str, Path]
     scan_shape: tuple
     frame_shape: tuple
@@ -37,7 +38,8 @@ class FourDimensionalData:
             (len(self), len(self.frame_shape)), -1
         )  # -1 meaning not calculated
 
-    def read_frame(self, n):
+    @abc.abstractmethod
+    def read_frame(self, n, signal=None):
         raise NotImplementedError("read_frame must be implemented by subclass.")
 
     def frame_index_from_ij(self, ij):
