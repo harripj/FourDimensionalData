@@ -37,8 +37,9 @@ def pixel_size_scan(header):
 
 def pixel_size(header, calibration=IMAGE_CALIBRATION):
     f"""
-    Return detector pixel size in 1/Angstrom.
-    The default ASTAR configuration image calibration is used of {IMAGE_CALIBRATION} pixels per cm.
+    Return detector pixel size in 1/Angstrom. The default ASTAR
+    configuration image calibration of {IMAGE_CALIBRATION} pixels per cm
+    is used by default.
     """
     shape = frame_shape(header)
     if not len(set(shape)) == 1:
@@ -46,7 +47,7 @@ def pixel_size(header, calibration=IMAGE_CALIBRATION):
 
     cl = camera_length(header)
     # wavelength in Angstrom
-    wavelength = electron_wavelength(electron_voltage(header)) / constants.angstrom
+    wavelength = electron_wavelength(electron_voltage(header))
 
     angular_radius = np.arctan(((shape[0] / 2.0) / calibration) / cl)
     # radius in 1/Angstrom
