@@ -33,6 +33,7 @@ class FourDimensionalData(abc.ABC):
         self._scan_offset = 0  # in frames, used for TVIPS, for example
         self._frame_mean = None
         self._frame_max = None
+        self._frame_total = None
         self._vbf_intensities = None
         self._direct_beam_coordinates = np.full(
             (len(self), len(self.frame_shape)), -1
@@ -123,15 +124,30 @@ class FourDimensionalData(abc.ABC):
 
         return self._frame_mean
 
+    def _calculate_frame_total(self):
+        total = np.empty(self.number_of_frames, dtype=float)
+        for i, f in enumerate(self.read_frame(None)):
+            total[i] = f.sum()
+        return total
+
+    @property
+    def frame_total(self):
+        """Calculate or return diffraction pattern total."""
+        if self._frame_total is None:
+            total = self._calculate_frame_total()
+            self._frame_total = total
+        return self._frame_total
+
     @property
     def vbf_intensities(self):
         return self._vbf_intensities
 
     @vbf_intensities.setter
     def vbf_intensities(self, x):
-        assert len(x) == len(
+        x = np.asarray(x)
+        assert x.size == len(
             self
-        ), f"VBF intensities with shape: {len(x)} are not defined for every frame: {len(self)}."
+        ), f"VBF intensities with shape: {x.size} are not defined for every frame: {len(self)}."
         self._vbf_intensities = np.asarray(x)
 
     @property

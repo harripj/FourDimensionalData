@@ -156,22 +156,31 @@ class TVIPS(FourDimensionalData):
 
     @property
     def vbf_intensities(self):
-        """Get VBF intensities from .tvipsinfo file. Returns None if not found."""
+        """Get VBF intensities from .tvipsinfo file.
+        Calculates VBF if not found."""
         try:
             with h5py.File(self._fname_tvipsinfo, "r") as h5:
                 out = h5["VBF Intensities"][:]
         except KeyError:
-            out = None
+            # calculate vbf
+            self.calculate_virtual_bright_field_reconstruction()
+            # get data
+            out = self._vbf_intensities
+            # set in .hdf
+            self.vbf_intensities = out
 
-        return out
+        return out[self.scan_offset: self.scan_offset + np.prod(self.scan_shape)].reshape(self.scan_shape)
 
     @vbf_intensities.setter
-    def vbf_intensities(self, data):
+    def vbf_intensities(self, x):
+        x = np.asarray(x)
+        if x.size != self.number_of_frames:
+            raise ValueError(f'x is not defined for each frame: {x.size} != {self.number_of_frames}.')
         with h5py.File(self._fname_tvipsinfo, "r+") as h5:
             if "VBF Intensities" in h5.keys():
-                h5["VBF Intensities"][...] = data
+                h5["VBF Intensities"][...] = x
             else:
-                h5["VBF Intensities"] = data
+                h5["VBF Intensities"] = x
 
     @property
     def direct_beam_coordinates(self):
@@ -213,6 +222,29 @@ class TVIPS(FourDimensionalData):
                 grp = h5.create_group("Scan Parameters")
             for k, v in parameters.items():
                 grp.attrs[k] = v
+
+    @property
+    def frame_total(self):
+        try:
+            with h5py.File(self._fname_tvipsinfo, "r") as h5:
+                out = h5['Frame total'][:]
+        except KeyError:
+            out = super().frame_total
+            self.frame_total = out  # add to tvipsinfo .hdf file
+
+        return out[self.scan_offset: self.scan_offset + np.prod(self.scan_shape)].reshape(self.scan_shape)
+
+    @frame_total.setter
+    def frame_total(self, x):
+        x = np.asarray(x)
+        if x.size != self.number_of_frames:
+            raise ValueError(f'x is not defined for each frame: {x.size} != {self.number_of_frames}.')
+        key = 'Frame total'
+        with h5py.File(self._fname_tvipsinfo, "r+") as h5:
+            if key in h5:
+                h5[key][...] = x
+            else:
+                h5[key] = x
 
     @property
     def scan_offset(self):
