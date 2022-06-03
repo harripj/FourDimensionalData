@@ -43,6 +43,10 @@ class FourDimensionalData(abc.ABC):
     def read_frame(self, n, signal=None):
         raise NotImplementedError("read_frame must be implemented by subclass.")
 
+    @property
+    def data(self):
+        return self.read_frame(None)
+
     def frame_index_from_ij(self, ij):
         """Return frame number from scan coordinate."""
         return np.ravel_multi_index(ij, self.scan_shape) + self.scan_offset
@@ -291,15 +295,15 @@ class FourDimensionalData(abc.ABC):
 
         # calculate (i, j, 2) grid of scan coords useful for slicing
         scan_grid = np.dstack(np.mgrid[: self.scan_y, : self.scan_x])
-
         # index grid of coords and get all ij coords to create n
-        _ij = scan_grid[ij]
-        ij = np.stack((_ij[..., 0].ravel(), _ij[..., 1].ravel()))
-        n = self.frame_index_from_ij(ij)
+        ij_indexed = scan_grid[ij]
+        n = self.frame_index_from_ij(
+            np.stack((ij_indexed[..., 0].ravel(), ij_indexed[..., 1].ravel()))
+        )
 
         shape_final = (
-            _ij.shape[:-1] + self.frame_shape
-        )  # just nav. axes of grid/_ij and frame
+            ij_indexed.shape[:-1] + self.frame_shape
+        )  # axes of ij_indexed and frame
         return np.reshape(tuple(self.read_frame(n)), shape_final).squeeze()
 
     def plot(self, figsize=(12, 6), cmap="gray"):
