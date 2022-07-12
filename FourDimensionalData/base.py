@@ -1,19 +1,16 @@
 import abc
 from dataclasses import dataclass
 import math
+import os
 from pathlib import Path
 from typing import Union
 
-from ipywidgets.widgets import (
-    interactive,
-    Checkbox,
-    FloatRangeSlider,
-    IntSlider,
-)
+from ipywidgets.widgets import Checkbox, FloatRangeSlider, IntSlider, interactive
 from matplotlib import pyplot as plt
 import numpy as np
 from numpy.typing import DTypeLike
 from skimage import draw
+from zmq import TYPE
 
 from .utils import find_direct_beam, recenter_mask
 
@@ -289,6 +286,9 @@ class FourDimensionalData(abc.ABC):
 
         return intensities
 
+    def __repr__(self):
+        return f"{self.__class__.__name__} {self.shape} {self.file.stem}"
+
     def __getitem__(self, ij):
         if not isinstance(ij, (tuple, list, np.ndarray)) or not len(ij) == 2:
             raise ValueError("ij should be iterable of array of ints (i, j).")
@@ -327,13 +327,13 @@ class FourDimensionalData(abc.ABC):
         log = Checkbox(True)
         clim = Checkbox(True, description="Auto clim?")
 
-        _dtype = np.iinfo(self.dtype)
-        _min, _max = _dtype.min, _dtype.max
+        dtype = np.iinfo(self.dtype)
+        min, max = dtype.min, dtype.max
 
         climrange = FloatRangeSlider(
-            value=(_min, _max),
-            min=_min,
-            max=_max,
+            value=(min, max),
+            min=min,
+            max=max,
             description="Manual limits:",
             orientation="horizontal",
         )
@@ -372,7 +372,6 @@ class FourDimensionalData(abc.ABC):
             mouse_in_axes = True
 
         def axes_leave(event):
-
             nonlocal mouse_in_axes
             mouse_in_axes = False
 
@@ -397,3 +396,23 @@ class FourDimensionalData(abc.ABC):
             clim=clim,
             climrange=climrange,
         )
+
+
+def load_file(fname: Union[str, Path]) -> FourDimensionalData:
+    """Open a 4D data file with the appropriate reader.
+
+    Currently supported formats are ASTAR .blo and TVIPS .tvips.
+    """
+    from .TVIPS import TVIPS
+    from .blockfile import BLO
+
+    handler = {"blo": BLO, "tvips": TVIPS}
+
+    fname = Path(fname)
+    ext = fname.suffix.strip(os.extsep)
+
+    if ext not in handler:
+        raise TypeError(
+            f"File format not supported. Supported formats are: {handler.keys()}."
+        )
+    return handler[ext](fname)
