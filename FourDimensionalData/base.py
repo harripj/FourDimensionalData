@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import abc
 from dataclasses import dataclass
 import math
@@ -397,22 +399,22 @@ class FourDimensionalData(abc.ABC):
             climrange=climrange,
         )
 
+    @staticmethod
+    def from_file(fname: Union[str, Path]) -> FourDimensionalData:
+        """Open a 4D data file with the appropriate reader.
 
-def load_file(fname: Union[str, Path]) -> FourDimensionalData:
-    """Open a 4D data file with the appropriate reader.
+        Currently supported formats are ASTAR .blo and TVIPS .tvips.
+        """
+        from .TVIPS import TVIPS
+        from .blockfile import BLO
 
-    Currently supported formats are ASTAR .blo and TVIPS .tvips.
-    """
-    from .TVIPS import TVIPS
-    from .blockfile import BLO
+        handler = {"blo": BLO, "tvips": TVIPS}
 
-    handler = {"blo": BLO, "tvips": TVIPS}
+        fname = Path(fname)
+        ext = fname.suffix.strip(os.extsep)
 
-    fname = Path(fname)
-    ext = fname.suffix.strip(os.extsep)
-
-    if ext not in handler:
-        raise TypeError(
-            f"File format not supported. Supported formats are: {handler.keys()}."
-        )
-    return handler[ext](fname)
+        if ext not in handler:
+            raise TypeError(
+                f"File format not supported. Supported formats are: {handler.keys()}."
+            )
+        return handler[ext](fname)
