@@ -1,13 +1,13 @@
 # this code is based on the Hyperspy implementation
 import math
-import numpy as np
 
-from hyperspy.misc.array_tools import sarray2dict
+from KED.microscope import electron_wavelength
 from hyperspy.io_plugins.blockfile import get_header_dtype_list
+from hyperspy.misc.array_tools import sarray2dict
+import numpy as np
 from scipy import constants
 from tqdm.auto import tqdm
 
-from KED.microscope import electron_wavelength
 from ..base import FourDimensionalData
 
 ENDIANESS = "<"
@@ -226,7 +226,7 @@ def read_frame(
         endianess=endianess,
         progressbar=progressbar,
         return_index=return_index,
-        signal=signal
+        signal=signal,
     )
 
     if len(n) == 1:
@@ -256,12 +256,6 @@ class BLO(FourDimensionalData):
             pixel_size_frame,
             parameters,
             dtype,
-        )
-
-    def __repr__(self):
-        return (
-            f"{self.__class__.__name__} {self.scan_shape} "
-            + f"{self.frame_shape} {self.file.stem}"
         )
 
     @property

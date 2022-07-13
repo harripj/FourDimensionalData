@@ -1,2 +1,2 @@
-from .blockfile import BLO
 from .TVIPS import TVIPS
+from .blockfile import BLO
