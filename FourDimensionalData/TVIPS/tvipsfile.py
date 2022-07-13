@@ -1,35 +1,34 @@
 from datetime import datetime
-from typing import Callable, Tuple, Union
-import warnings
 import itertools
 import logging
 import math
 import os
 from pathlib import Path
+from typing import Callable, Tuple, Union
+import warnings
 
-from hyperspy.io_plugins import blockfile
 import h5py
+from hyperspy.io_plugins import blockfile
 from ipywidgets import (
-    interactive,
-    IntSlider,
-    Checkbox,
     Button,
-    VBox,
-    Output,
+    Checkbox,
     FloatRangeSlider,
+    IntSlider,
+    Output,
+    VBox,
+    interactive,
 )
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 import numpy as np
+from scipy import signal
 from skimage import exposure
 from skimage.util import img_as_ubyte
-from scipy import signal
 import tifffile
 from tqdm.auto import tqdm
 
-
-from ..utils import bin_box, find_direct_beam
 from ..base import FourDimensionalData
+from ..utils import bin_box, find_direct_beam
 
 
 class TVIPS(FourDimensionalData):
@@ -169,13 +168,17 @@ class TVIPS(FourDimensionalData):
             # set in .hdf
             self.vbf_intensities = out
 
-        return out[self.scan_offset: self.scan_offset + np.prod(self.scan_shape)].reshape(self.scan_shape)
+        return out[
+            self.scan_offset : self.scan_offset + np.prod(self.scan_shape)
+        ].reshape(self.scan_shape)
 
     @vbf_intensities.setter
     def vbf_intensities(self, x):
         x = np.asarray(x)
         if x.size != self.number_of_frames:
-            raise ValueError(f'x is not defined for each frame: {x.size} != {self.number_of_frames}.')
+            raise ValueError(
+                f"x is not defined for each frame: {x.size} != {self.number_of_frames}."
+            )
         with h5py.File(self._fname_tvipsinfo, "r+") as h5:
             if "VBF Intensities" in h5.keys():
                 h5["VBF Intensities"][...] = x
@@ -227,19 +230,23 @@ class TVIPS(FourDimensionalData):
     def frame_total(self):
         try:
             with h5py.File(self._fname_tvipsinfo, "r") as h5:
-                out = h5['Frame total'][:]
+                out = h5["Frame total"][:]
         except KeyError:
             out = super().frame_total
             self.frame_total = out  # add to tvipsinfo .hdf file
 
-        return out[self.scan_offset: self.scan_offset + np.prod(self.scan_shape)].reshape(self.scan_shape)
+        return out[
+            self.scan_offset : self.scan_offset + np.prod(self.scan_shape)
+        ].reshape(self.scan_shape)
 
     @frame_total.setter
     def frame_total(self, x):
         x = np.asarray(x)
         if x.size != self.number_of_frames:
-            raise ValueError(f'x is not defined for each frame: {x.size} != {self.number_of_frames}.')
-        key = 'Frame total'
+            raise ValueError(
+                f"x is not defined for each frame: {x.size} != {self.number_of_frames}."
+            )
+        key = "Frame total"
         with h5py.File(self._fname_tvipsinfo, "r+") as h5:
             if key in h5:
                 h5[key][...] = x
