@@ -258,6 +258,8 @@ class BLO(FourDimensionalData):
             dtype,
         )
 
+        self.vbf_intensities = self.vbf
+
     @property
     def electron_voltage(self):
         """Return electron beam voltage in kV."""
