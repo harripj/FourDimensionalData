@@ -1,6 +1,6 @@
 # FourDimensionalData
 
-Scripts to open various 4-dimensional data formats, with 2 spatial and 2 image dimensions.
+Scripts to open various 4-dimensional data formats, with 2 spatial and 2 image dimensions, in a common format.
 Supported data formats are currently based around Transmission Electron Microscopy and
 include ASTAR .blo and TVIPS .tvips files.
 
