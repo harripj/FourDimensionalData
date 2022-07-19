@@ -17,7 +17,7 @@ setup(
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Physics",
     ],
-    packages=find_packages(),
+    packages=find_packages("."),
     install_requires=[
         "hyperspy",
         "ipywidgets",
@@ -29,5 +29,5 @@ setup(
         "scipy",
         "tqdm",
     ],
-    package_data={"": ["LICENSE", "README.md", "readthedocs.yml"], "KED": ["*.py"]},
+    package_data={"": ["LICENSE", "README.md"]},
 )
