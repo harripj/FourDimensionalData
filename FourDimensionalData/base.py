@@ -12,7 +12,6 @@ from matplotlib import pyplot as plt
 import numpy as np
 from numpy.typing import DTypeLike
 from skimage import draw
-from zmq import TYPE
 
 from .utils import find_direct_beam, recenter_mask
 
@@ -259,7 +258,7 @@ class FourDimensionalData(abc.ABC):
         # init output
         intensities = []
 
-        for i, (frame, num) in enumerate(self.read_frame(n, return_index=True)):
+        for frame, num in self.read_frame(n, return_index=True):
             if recenter:
                 # if the data has not been written, ie. -1
                 if (dbc[num] < 0).any():
@@ -277,10 +276,10 @@ class FourDimensionalData(abc.ABC):
                 mask_temp = mask
 
             # extract intensities from frame
-            _intensities = frame[mask_temp]
+            intensities_temp = frame[mask_temp]
             if integrate:
-                _intensities = _intensities.sum()
-            intensities.append(_intensities)
+                intensities_temp = intensities_temp.sum()
+            intensities.append(intensities_temp)
 
         if recenter:
             # write to file after using all frames
