@@ -1,0 +1,2 @@
+include data4d/version
+include data4d/TVIPS/GUI/main.ui

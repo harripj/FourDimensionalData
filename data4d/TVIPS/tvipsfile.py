@@ -4,9 +4,10 @@ import logging
 import math
 import os
 from pathlib import Path
-from typing import Callable, Tuple, Union
+from typing import IO, Any, Callable, Generator, Optional, Tuple, Union
 import warnings
 
+from PySide2.QtCore import Signal
 import h5py
 from hyperspy.io_plugins import blockfile
 from ipywidgets import (
@@ -21,8 +22,9 @@ from ipywidgets import (
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 from scipy import signal
-from skimage import exposure
+from skimage.exposure import rescale_intensity
 from skimage.util import img_as_ubyte
 import tifffile
 from tqdm.auto import tqdm
@@ -76,9 +78,9 @@ class TVIPS(FourDimensionalData):
         # for header version 2, some more data might be present
     ]
 
-    _max_frames = int(1e6)  # maximum number of frames, in reality it is much less
+    _max_frames = 1_000_000  # maximum number of frames, in reality it is much less
 
-    def __init__(self, fname):
+    def __init__(self, fname: Union[str, Path]):
         """
         Open a .tvips file. This file may be in more than one part, in which case provide the first file.
 
@@ -140,7 +142,7 @@ class TVIPS(FourDimensionalData):
         )
 
     @staticmethod
-    def _check_input_file(fname):
+    def _check_input_file(fname: Union[str, Path]):
         fname = Path(fname)
 
         if not fname.exists():
@@ -154,7 +156,7 @@ class TVIPS(FourDimensionalData):
         return fname
 
     @property
-    def vbf_intensities(self):
+    def vbf_intensities(self) -> NDArray:
         """Get VBF intensities from .tvipsinfo file.
         Calculates VBF if not found."""
         try:
@@ -173,7 +175,7 @@ class TVIPS(FourDimensionalData):
         ].reshape(self.scan_shape)
 
     @vbf_intensities.setter
-    def vbf_intensities(self, x):
+    def vbf_intensities(self, x: ArrayLike):
         x = np.asarray(x)
         if x.size != self.number_of_frames:
             raise ValueError(
@@ -186,7 +188,7 @@ class TVIPS(FourDimensionalData):
                 h5["VBF Intensities"] = x
 
     @property
-    def direct_beam_coordinates(self):
+    def direct_beam_coordinates(self) -> NDArray:
         with h5py.File(self._fname_tvipsinfo, "r+") as h5:
             try:
                 out = h5["Direct Beam Coordinates"][:]
@@ -199,7 +201,7 @@ class TVIPS(FourDimensionalData):
         return out
 
     @direct_beam_coordinates.setter
-    def direct_beam_coordinates(self, data):
+    def direct_beam_coordinates(self, data: NDArray):
         with h5py.File(self._fname_tvipsinfo, "r+") as h5:
             if "Direct Beam Coordinates" in h5.keys():
                 h5["Direct Beam Coordinates"][...] = data
@@ -207,7 +209,7 @@ class TVIPS(FourDimensionalData):
                 h5["Direct Beam Coordinates"] = data
 
     @property
-    def scan_parameters(self):
+    def scan_parameters(self) -> dict:
         with h5py.File(self._fname_tvipsinfo, "r") as h5:
             try:
                 out = dict(**h5["Scan Parameters"].attrs)
@@ -216,8 +218,9 @@ class TVIPS(FourDimensionalData):
         return out
 
     @scan_parameters.setter
-    def scan_parameters(self, parameters):
-        assert isinstance(parameters, dict), "parameters must be dict."
+    def scan_parameters(self, parameters: dict):
+        if not isinstance(parameters, dict):
+            raise TypeError("parameters must be dict")
         with h5py.File(self._fname_tvipsinfo, "r+") as h5:
             try:
                 grp = h5["Scan Parameters"]
@@ -227,7 +230,7 @@ class TVIPS(FourDimensionalData):
                 grp.attrs[k] = v
 
     @property
-    def frame_total(self):
+    def frame_total(self) -> NDArray:
         try:
             with h5py.File(self._fname_tvipsinfo, "r") as h5:
                 out = h5["Frame total"][:]
@@ -240,7 +243,7 @@ class TVIPS(FourDimensionalData):
         ].reshape(self.scan_shape)
 
     @frame_total.setter
-    def frame_total(self, x):
+    def frame_total(self, x: ArrayLike):
         x = np.asarray(x)
         if x.size != self.number_of_frames:
             raise ValueError(
@@ -254,7 +257,7 @@ class TVIPS(FourDimensionalData):
                 h5[key] = x
 
     @property
-    def scan_offset(self):
+    def scan_offset(self) -> int:
         try:
             offset = self.scan_parameters["offset"]
         except KeyError:
@@ -262,23 +265,26 @@ class TVIPS(FourDimensionalData):
         return offset
 
     @scan_offset.setter
-    def scan_offset(self, i):
-        assert isinstance(i, int), "offset must be an integer."
+    def scan_offset(self, i: int):
+        if not isinstance(i, int):
+            raise TypeError("offset must be an integer")
         self.scan_parameters = dict(offset=i)
 
     @FourDimensionalData.scan_x.setter
-    def scan_x(self, x):
-        assert isinstance(x, int), "x must be an integer."
+    def scan_x(self, x: int):
+        if not isinstance(x, int):
+            raise TypeError("x must be an integer")
         self.scan_shape = (self.scan_y, x)
         self.scan_parameters = dict(nj=x)
 
     @FourDimensionalData.scan_y.setter
-    def scan_y(self, y):
-        assert isinstance(y, int), "y must be an integer."
+    def scan_y(self, y: int):
+        if not isinstance(y, int):
+            raise TypeError("y must be an integer")
         self.scan_shape = (y, self.scan_x)
         self.scan_parameters = dict(ni=y)
 
-    def _check_for_files(self, fname):
+    def _check_for_files(self, fname: Union[str, Path]) -> list:
         fname = self._check_input_file(fname)
 
         # if overflow_files is not None:
@@ -312,7 +318,7 @@ class TVIPS(FourDimensionalData):
     def number_of_frames(self):
         return self._calculate_number_of_frames()
 
-    def _calculate_number_of_frames(self):
+    def _calculate_number_of_frames(self) -> int:
         """Estimate number of frames in all files knowing the frame and header sizes."""
         n = math.ceil(
             (
@@ -323,7 +329,7 @@ class TVIPS(FourDimensionalData):
         )
         return n
 
-    def _read_general_header(self, file):
+    def _read_general_header(self, file: Union[str, Path]):
         with tifffile.FileHandle(file, "rb") as f:
             keys = (i[0] for i in self.TVIPS_RECORDER_GENERAL_HEADER)
             dtypes = (i[1] for i in self.TVIPS_RECORDER_GENERAL_HEADER)
@@ -343,7 +349,7 @@ class TVIPS(FourDimensionalData):
                 raise err
             self.general_header = general
 
-    def _read_frame_header(self, fh):
+    def _read_frame_header(self, fh: IO):
         keys = (i[0] for i in self.TVIPS_RECORDER_FRAME_HEADER)
         dtypes = (i[1] for i in self.TVIPS_RECORDER_FRAME_HEADER)
         self._frame_header_size = sum(np.dtype(i).itemsize for i in dtypes)
@@ -355,7 +361,7 @@ class TVIPS(FourDimensionalData):
             )
         )
 
-    def _format_frame_numbers(self, n):
+    def _format_frame_numbers(self, n: Optional[ArrayLike]):
         """
         Checks frame numbers n to see if they are of the right format.
 
@@ -386,7 +392,7 @@ class TVIPS(FourDimensionalData):
 
         return n
 
-    def _get_frame_header_start_byte(self, n):
+    def _get_frame_header_start_byte(self, n: ArrayLike) -> Generator[int, None, None]:
         """
         Return frame header start byte position within file.
 
@@ -409,7 +415,7 @@ class TVIPS(FourDimensionalData):
                 self.general_header["frameheaderbytes"] + self._frame_size_bytes
             )
 
-    def _get_frame_start_byte(self, n):
+    def _get_frame_start_byte(self, n: ArrayLike) -> Generator[int, None, None]:
         """
         Return frame start byte position within file.
 
@@ -430,7 +436,7 @@ class TVIPS(FourDimensionalData):
         for i in self._get_frame_header_start_byte(n):
             yield i + self.general_header["frameheaderbytes"]
 
-    def _data_in_file_index(self, byte):
+    def _data_in_file_index(self, byte: int) -> Optional[int]:
         """
         Check which file the data requested is in.
 
@@ -454,8 +460,15 @@ class TVIPS(FourDimensionalData):
             )
 
     def _read_frame(
-        self, n, return_header=False, return_index=False, memmap=False, signal=None
-    ):
+        self,
+        n: ArrayLike,
+        return_header: bool = False,
+        return_index: bool = False,
+        memmap: bool = False,
+        signal: Optional[Signal] = None,
+    ) -> Generator[
+        Union[NDArray, Tuple[NDArray, dict], Tuple[NDArray, dict, int]], None, None
+    ]:
         """
         Read one or more frames from file. This private function does the heavy lifting.
         The wrapper with the same name allows for a return call if n is just one number.
@@ -553,8 +566,18 @@ class TVIPS(FourDimensionalData):
                     yield out
 
     def read_frame(
-        self, n, return_header=False, return_index=False, memmap=False, signal=None
-    ):
+        self,
+        n: ArrayLike,
+        return_header: bool = False,
+        return_index: bool = False,
+        memmap: bool = False,
+        signal: Optional[Signal] = None,
+    ) -> Union[
+        Union[NDArray, Tuple[NDArray, dict], Tuple[NDArray, dict, int]],
+        Generator[
+            Union[NDArray, Tuple[NDArray, dict], Tuple[NDArray, dict, int]], None, None
+        ],
+    ]:
         """
         Read one or more frames from file.
 
@@ -597,9 +620,10 @@ class TVIPS(FourDimensionalData):
             return frames
 
     @staticmethod
-    def recenter_mask(mask, new_center, old_center):
+    def recenter_mask(
+        mask: ArrayLike, new_center: Tuple[int, int], old_center: Tuple[int, int]
+    ) -> Union[NDArray, Tuple[NDArray]]:
         """
-
         Shift a mask to a new center position.
 
         Parameters
@@ -633,7 +657,9 @@ class TVIPS(FourDimensionalData):
 
         return out
 
-    def recenter_frame(self, frame, center, mode="edge"):
+    def recenter_frame(
+        self, frame: NDArray, center: Tuple[int, int], mode: str = "edge"
+    ) -> NDArray:
         """
         Recenter frame by rolling. If center is comprised of floats then subpixel rolling will be performed.
 
@@ -660,7 +686,13 @@ class TVIPS(FourDimensionalData):
         else:
             return self.roll_array_subpixel(frame, shift, mode=mode)
 
-    def calculate_quantity_over_patterns(self, n, fn, recenter=False, key=None):
+    def calculate_quantity_over_patterns(
+        self,
+        n: Optional[ArrayLike],
+        fn: Callable,
+        recenter: bool = False,
+        key: Optional[str] = None,
+    ) -> NDArray:
         """
         Calculate some quantity over n frames.
 
@@ -847,7 +879,12 @@ class TVIPS(FourDimensionalData):
     #     return self._calculate_frame_index(ij, shape, offset, crop)
 
     @staticmethod
-    def save_reconstruction(fname, key, arr=None, **parameters):
+    def save_reconstruction(
+        fname: Union[str, Path],
+        key: str,
+        arr: NDArray = None,
+        **parameters: dict[str, Any],
+    ):
         """
         Add reconstruction and parameters as attrs at key within .recon.
         """
@@ -924,10 +961,10 @@ class TVIPS(FourDimensionalData):
 
     def estimate_shape(
         self,
-        n: int = 2500,
+        n: int = 2_500,
         comparator: Callable = np.less_equal,
         order: int = 100,
-        ax: Union[Axes, None] = None,
+        ax: Optional[Axes] = None,
     ):
         """
         Estimate shape according to some periodicity in the VBF intensities.
@@ -963,9 +1000,9 @@ class TVIPS(FourDimensionalData):
 
     def plot(
         self,
-        shape: Union[None, Tuple] = None,
-        figsize: Tuple = (12, 6),
-        shape_max: Tuple = (512, 512),
+        shape: Optional[Tuple] = None,
+        figsize: Tuple[int, int] = (12, 6),
+        shape_max: Tuple[int, int] = (512, 512),
     ):
         """
         Convenience plotting function to plot data interactively.
@@ -1042,7 +1079,16 @@ class TVIPS(FourDimensionalData):
         button_save.on_click(update_vbf_parameters)
         output = Output()
 
-        def update(ii, jj, nii, njj, offsett, log, clim, climrange):
+        def update(
+            ii: int,
+            jj: int,
+            nii: int,
+            njj: int,
+            offsett: int,
+            log: bool,
+            clim: bool,
+            climrange: Tuple[float, float],
+        ):
             # change slider limits to avoid over reading data
             i.max = nii
             j.max = njj
@@ -1131,7 +1177,12 @@ class TVIPS(FourDimensionalData):
         )
 
     def get_blo_header(
-        self, binning=1, scan_scale=1.0, ppcm=None, endianess="<", **kwargs
+        self,
+        binning: int = 1,
+        scan_scale: float = 1.0,
+        ppcm: Optional[float] = None,
+        endianess: str = "<",
+        **kwargs: dict[str, Any],
     ):
         header = blockfile.get_default_header(endianess)
         note = ""
@@ -1188,12 +1239,12 @@ class TVIPS(FourDimensionalData):
 
     def create_blo_file(
         self,
-        filename=None,
-        binning=1,
-        clip=None,
-        check_exists=True,
-        signal=None,
-        **kwds,
+        filename: Optional[Union[str, Path]] = None,
+        binning: int = 1,
+        clip: Optional[Tuple[int, int]] = None,
+        check_exists: bool = True,
+        signal: Optional[Signal] = None,
+        **kwds: dict[str, Any],
     ):
         """
         Create a .blo file from TVIPS data.
@@ -1265,7 +1316,7 @@ class TVIPS(FourDimensionalData):
 
         # compute vbf and rescale before writing file
         vbf = img_as_ubyte(
-            exposure.rescale_intensity(self.vbf_intensities[n], out_range=(0.0, 1.0))
+            rescale_intensity(self.vbf_intensities[n], out_range=(0.0, 1.0))
         )
 
         # now start file write

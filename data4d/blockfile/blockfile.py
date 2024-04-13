@@ -1,10 +1,14 @@
 # this code is based on the Hyperspy implementation
 import math
+from pathlib import Path
+from typing import Generator, Optional, Tuple, Union
 
 from KED.microscope import electron_wavelength
+from PySide2.QtCore import Signal
 from hyperspy.io_plugins.blockfile import get_header_dtype_list
 from hyperspy.misc.array_tools import sarray2dict
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 from scipy import constants
 from tqdm.auto import tqdm
 
@@ -15,7 +19,7 @@ FRAME_OFFSET = 6  # each frame has 6 byte offset
 IMAGE_CALIBRATION = 110  # pixels per cm on detector in standard ASTAR
 
 
-def read_header(fname, endianess=ENDIANESS):
+def read_header(fname: Union[str, Path], endianess: str = ENDIANESS):
     """Read blockfile header and return as dict."""
     with open(fname, "rb") as f:
         header = sarray2dict(
@@ -25,17 +29,19 @@ def read_header(fname, endianess=ENDIANESS):
     return header
 
 
-def electron_voltage(header):
+def electron_voltage(header: dict) -> float:
     """Return electron beam voltage in kV."""
-    return header["Beam_energy"] / 1e3
+    return header["Beam_energy"] / 1_000
 
 
-def pixel_size_scan(header):
+def pixel_size_scan(header: dict) -> Tuple[int, int]:
     """Return scan pixel size (i, j) (nm)."""
     return (header["SY"], header["SX"])
 
 
-def pixel_size(header, calibration=IMAGE_CALIBRATION):
+def pixel_size(
+    header: dict, calibration: Union[int, float] = IMAGE_CALIBRATION
+) -> float:
     f"""
     Return detector pixel size in 1/Angstrom. The default ASTAR
     configuration image calibration of {IMAGE_CALIBRATION} pixels per cm
@@ -58,39 +64,39 @@ def pixel_size(header, calibration=IMAGE_CALIBRATION):
     return radius / (shape[0] / 2.0)
 
 
-def scan_shape(header):
+def scan_shape(header: dict) -> Tuple[int, int]:
     """Return scan shape (i, j)."""
     # need to convert np ints to 64-bit to stop overflow
     return (int(header["NY"]), int(header["NX"]))
 
 
-def number_of_frames(header):
+def number_of_frames(header: dict) -> int:
     """Return total number of frames within file."""
     return math.prod(scan_shape(header))
 
 
-def frame_shape(header):
+def frame_shape(header: dict) -> Tuple[int, int]:
     """Return frame shape (i, j). NB. assumed to be square."""
     # need to convert np ints to 64-bit to stop overflow
     return (int(header["DP_SZ"]), int(header["DP_SZ"]))
 
 
-def camera_length(header):
+def camera_length(header: dict) -> float:
     """Return camera length in cm."""
-    return header["Camera_length"] / 1e2
+    return header["Camera_length"] / 100
 
 
-def frame_size(header):
+def frame_size(header: dict) -> int:
     """Return frame size in number of pixels."""
     return math.prod(frame_shape(header))
 
 
-def frame_number_from_indices(header, ij):
+def frame_number_from_indices(header: dict, ij: NDArray) -> NDArray:
     """Get frame number from ij indices. ij has shape (2, N)."""
     return np.ravel_multi_index(ij, scan_shape(header))
 
 
-def read_vbf(fname, endianess=ENDIANESS):
+def read_vbf(fname: Union[str, Path], endianess: str = ENDIANESS) -> NDArray:
     """Read the VBF reconstruction stored in the .blo file."""
 
     with open(fname, "rb") as f:
@@ -109,14 +115,14 @@ def read_vbf(fname, endianess=ENDIANESS):
 
 
 def _read_frame(
-    fname,
-    n,
-    header=None,
-    endianess=ENDIANESS,
-    progressbar=True,
-    return_index=False,
-    signal=None,
-):
+    fname: Union[str, Path],
+    n: ArrayLike,
+    header: Optional[dict] = None,
+    endianess: str = ENDIANESS,
+    progressbar: bool = True,
+    return_index: bool = False,
+    signal: Optional[Signal] = None,
+) -> Generator[Union[NDArray, Tuple[NDArray, int]], None, None]:
     f"""
     Worker function to yield frames from .blo file.
 
@@ -135,7 +141,7 @@ def _read_frame(
         If True then a progressbar is shown.
     return_index: bool
         If True then each frame's index within the file is also returned.
-    signal: QSignal, optional
+    signal: Signal, optional
         If provided then a signal is emitted on each iteration.
 
     Yields
@@ -177,8 +183,13 @@ def _read_frame(
 
 
 def read_frame(
-    fname, n, endianess=ENDIANESS, verbose=True, return_index=False, signal=None
-):
+    fname: Union[str, Path],
+    n: ArrayLike,
+    endianess: str = ENDIANESS,
+    verbose: bool = True,
+    return_index: bool = False,
+    signal: Optional[Signal] = None,
+) -> Union[NDArray, Generator[Union[NDArray, Tuple[NDArray, int]], None, None]]:
     """
     Read frame(s) from .blo file.
 
@@ -237,7 +248,7 @@ def read_frame(
 
 
 class BLO(FourDimensionalData):
-    def __init__(self, fname):
+    def __init__(self, fname: Union[str, Path]):
         """Read data from ASTAR .blo blockfile."""
         self.header = read_header(fname)
 
@@ -261,36 +272,36 @@ class BLO(FourDimensionalData):
         self.vbf_intensities = self.vbf
 
     @property
-    def electron_voltage(self):
+    def electron_voltage(self) -> float:
         """Return electron beam voltage in kV."""
         return self.header["Beam_energy"] / constants.kilo
 
     @property
-    def pixel_size(self):
+    def pixel_size(self) -> float:
         """Pixel size of diffraction pattern as in 1/Angstrom."""
         return self._pixel_size
 
     @pixel_size.setter
-    def pixel_size(self, x):
+    def pixel_size(self, x: float):
         self._pixel_size = x
 
     @property
-    def number_of_frames(self):
+    def number_of_frames(self) -> int:
         """Total number of frames in file."""
         return math.prod(self.scan_shape)
 
     @property
-    def camera_length(self):
+    def camera_length(self) -> float:
         """Return camera length in cm."""
         return self.header["Camera_length"] * constants.centi
 
     @property
-    def image_calibration(self):
+    def image_calibration(self) -> float:
         """Return image (frame) calibration in pixels per cm."""
         return self.header["SDP"] * constants.centi
 
     @property
-    def vbf(self):
+    def vbf(self) -> NDArray:
         """Return VBF image saved in blockfile."""
         with open(self.file, "rb") as f:
             f.seek(self.header["Data_offset_1"])  # VBF information after this point
@@ -304,8 +315,13 @@ class BLO(FourDimensionalData):
         return out
 
     def read_frame(
-        self, n, endianess="<", verbose=True, return_index=False, signal=None
-    ):
+        self,
+        n: ArrayLike,
+        endianess: str = ENDIANESS,
+        verbose: bool = True,
+        return_index: bool = False,
+        signal: Optional[Signal] = None,
+    ) -> Union[NDArray, Generator[Union[NDArray, Tuple[NDArray, int]], None, None]]:
         """
         Read frame(s) from .blo file.
 
@@ -360,8 +376,4 @@ class BLO(FourDimensionalData):
             signal=signal,
         )
 
-        if len(n) == 1:
-            # just get frame
-            out = next(out)
-
-        return out
+        return next(out) if len(n) == 1 else out

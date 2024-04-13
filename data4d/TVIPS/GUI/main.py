@@ -1,27 +1,24 @@
 # fmt: off
-import PySide2  # needed before Qt5 gets imported
-# fmt: on
-
 import math
-import sys
 import os
 from pathlib import Path
+import sys
 
+import PySide2  # needed before Qt5 gets imported
+from PySide2.QtCore import QCoreApplication, QPointF, Qt, QThread, Signal
+from PySide2.QtWidgets import QApplication, QFileDialog, QMainWindow
 import numpy as np
 import pyqtgraph as pg
-from PySide2.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QFileDialog,
-)
-from PySide2.QtCore import Qt, QCoreApplication, QPointF, QThread, Signal
 from skimage import exposure
+
+# fmt: on
+
 
 pg.setConfigOptions(imageAxisOrder="row-major")  # default for numpy
 
+from ...utils import bin_box
+from ..tvipsfile import TVIPS
 from .PySide2_dynamic import loadUi
-from .tvipsfile import TVIPS
-from ..utils import bin_box
 
 # hotfix 3.9 MacOS Big Sur bug
 if sys.platform == "darwin":
@@ -324,6 +321,3 @@ def main():
     window.show()
     sys.exit(app.exec_())
 
-
-if __name__ == "__main__":
-    main()

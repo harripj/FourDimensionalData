@@ -1,11 +1,18 @@
 from itertools import product
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
+from numpy.typing import ArrayLike, DTypeLike, NDArray
 from scipy import ndimage
 from skimage import feature
 
 
-def bin_box(arr, factor, axis=None, dtype=False):
+def bin_box(
+    arr: NDArray,
+    factor: int,
+    axis: Optional[Union[int, Tuple[int, int]]] = None,
+    dtype: Optional[DTypeLike] = False,
+) -> NDArray:
     """
     Use box averaging to bin the images.
 
@@ -77,7 +84,13 @@ def bin_box(arr, factor, axis=None, dtype=False):
     return np.stack(tuple(arr[s] for s in slices), axis=0).mean(axis=0).astype(dtype)
 
 
-def find_direct_beam(frame, side=30, sigma=3.0, refine=True, **kwargs):
+def find_direct_beam(
+    frame: NDArray,
+    side: int = 30,
+    sigma: float = 3.0,
+    refine: bool = True,
+    **kwargs: dict[str, Any],
+) -> Tuple[int, int]:
     """
     Find the direct beam within a box from the center of the frame by
     blurring and getting the peak.
@@ -155,7 +168,9 @@ def find_direct_beam(frame, side=30, sigma=3.0, refine=True, **kwargs):
     return out
 
 
-def recenter_mask(mask, new_center, old_center):
+def recenter_mask(
+    mask: ArrayLike, new_center: Tuple[int, int], old_center: Tuple[int, int]
+) -> NDArray:
     """
 
     Shift a mask to a new center position.
@@ -193,7 +208,7 @@ def recenter_mask(mask, new_center, old_center):
     return out
 
 
-def roll_array_subpixel(arr, shift, mode="edge"):
+def roll_array_subpixel(arr: NDArray, shift: ArrayLike, mode: str = "edge") -> NDArray:
     """
     Shift and array by a subpixel amount using local averaging.
     This method uses Manhattan distances and therefore retains local
