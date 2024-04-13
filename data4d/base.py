@@ -5,12 +5,13 @@ from dataclasses import dataclass
 import math
 import os
 from pathlib import Path
-from typing import Union
+from typing import Optional, Tuple, Union
 
+from PySide2.QtCore import Signal
 from ipywidgets.widgets import Checkbox, FloatRangeSlider, IntSlider, interactive
 from matplotlib import pyplot as plt
 import numpy as np
-from numpy.typing import DTypeLike
+from numpy.typing import ArrayLike, DTypeLike, NDArray
 from skimage import draw
 
 from .utils import find_direct_beam, recenter_mask
@@ -38,53 +39,53 @@ class FourDimensionalData(abc.ABC):
         )  # -1 meaning not calculated
 
     @abc.abstractmethod
-    def read_frame(self, n, signal=None):
+    def read_frame(self, n: ArrayLike, signal: Optional[Signal] = None):
         raise NotImplementedError("read_frame must be implemented by subclass.")
 
     @property
     def data(self):
         return self.read_frame(None)
 
-    def frame_index_from_ij(self, ij):
+    def frame_index_from_ij(self, ij: ArrayLike) -> NDArray:
         """Return frame number from scan coordinate."""
         return np.ravel_multi_index(ij, self.scan_shape) + self.scan_offset
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.number_of_frames
 
     @property
-    def scan_offset(self):
+    def scan_offset(self) -> int:
         """Number of frames before start of scan, may be 0."""
         return self._scan_offset
 
     @scan_offset.setter
-    def scan_offset(self, x):
+    def scan_offset(self, x: int):
         self._scan_offset = x
 
     @property
-    def shape(self):
+    def shape(self) -> Tuple[int, int, int, int]:
         """4D shape of dataset."""
         return self.scan_shape + self.frame_shape
 
     @property
-    def scan_x(self):
+    def scan_x(self) -> int:
         """The number of frames in the scan x-dimension."""
         return self.scan_shape[1]
 
     @scan_x.setter
-    def scan_x(self, x):
+    def scan_x(self, x: int):
         self.scan_shape = (self.scan_y, x)
 
     @property
-    def scan_y(self):
+    def scan_y(self) -> int:
         """The number of frames in the scan y-dimension."""
         return self.scan_shape[0]
 
     @scan_y.setter
-    def scan_y(self, y):
+    def scan_y(self, y: int):
         self.scan_shape = (y, self.scan_x)
 
-    def check_scan_shape(self):
+    def check_scan_shape(self) -> bool:
         """Check whether scan shape (x, y) with offset fits into file."""
         return (
             True
@@ -93,13 +94,13 @@ class FourDimensionalData(abc.ABC):
         )
 
     @property
-    def number_of_frames(self):
+    def number_of_frames(self) -> int:
         """Total number of frames within dataset as calculated by the
         scan parameters."""
         return math.prod(self.shape) + self.scan_offset
 
     @property
-    def frame_max(self):
+    def frame_max(self) -> NDArray:
         """Calculate or return diffraction pattern max."""
         if self._frame_max is None:
             for i, f in enumerate(self.read_frame(None)):
@@ -112,7 +113,7 @@ class FourDimensionalData(abc.ABC):
         return self._frame_max
 
     @property
-    def frame_mean(self):
+    def frame_mean(self) -> NDArray:
         """Calculate or return diffraction pattern mean."""
         if self._frame_mean is None:
             for i, f in enumerate(self.read_frame(None)):
@@ -126,14 +127,14 @@ class FourDimensionalData(abc.ABC):
 
         return self._frame_mean
 
-    def _calculate_frame_total(self):
+    def _calculate_frame_total(self) -> NDArray:
         total = np.empty(self.number_of_frames, dtype=float)
         for i, f in enumerate(self.read_frame(None)):
             total[i] = f.sum()
         return total
 
     @property
-    def frame_total(self):
+    def frame_total(self) -> NDArray:
         """Calculate or return diffraction pattern total."""
         if self._frame_total is None:
             total = self._calculate_frame_total()
@@ -141,11 +142,11 @@ class FourDimensionalData(abc.ABC):
         return self._frame_total
 
     @property
-    def vbf_intensities(self):
+    def vbf_intensities(self) -> NDArray:
         return self._vbf_intensities
 
     @vbf_intensities.setter
-    def vbf_intensities(self, x):
+    def vbf_intensities(self, x: ArrayLike):
         x = np.asarray(x)
         assert x.size == len(
             self
@@ -153,27 +154,29 @@ class FourDimensionalData(abc.ABC):
         self._vbf_intensities = np.asarray(x)
 
     @property
-    def direct_beam_coordinates(self):
+    def direct_beam_coordinates(self) -> NDArray:
         return self._direct_beam_coordinates
 
     @direct_beam_coordinates.setter
-    def direct_beam_coordinates(self, c):
-        assert len(c) == len(
-            self
-        ), f"Cooridnates with shape: {len(c)} are not defined for every frame: {len(self)}."
+    def direct_beam_coordinates(self, c: ArrayLike):
+        if len(c) != len(self):
+            raise ValueError(
+                f"Coordinates with shape: {len(c)} are not defined for every frame: {len(self)}"
+            )
         c = np.asarray(c)
-        assert c.shape[-1] == len(
-            self.frame_shape
-        ), f"Coordinates with shape: {c.shape} should be defined for each frame dimension: {len(self.frame_shape)}."
+        if c.shape[-1] != len(self.frame_shape):
+            raise ValueError(
+                f"Coordinates with shape: {c.shape} should be defined for each frame dimension: {len(self.frame_shape)}"
+            )
         self._direct_beam_coordinates = c
 
     def calculate_virtual_bright_field_reconstruction(
         self,
-        radius=5,
-        n=None,
-        recenter=False,
-        side=30,
-        sigma=3.0,
+        radius: float = 5,
+        n: Optional[ArrayLike] = None,
+        recenter: bool = False,
+        side: int = 30,
+        sigma: float = 3.0,
     ):
         """
         Calculate virtual bright field reconstruction, accessible at
@@ -206,8 +209,14 @@ class FourDimensionalData(abc.ABC):
         )
 
     def calculate_virtual_reconstruction(
-        self, mask, n=None, recenter=False, integrate=True, side=50, sigma=3.0
-    ):
+        self,
+        mask: ArrayLike,
+        n: Optional[ArrayLike] = None,
+        recenter: bool = False,
+        integrate: bool = True,
+        side: int = 50,
+        sigma: float = 3.0,
+    ) -> ArrayLike:
         """
 
         Calculate virtual reconstruction from a mask.
@@ -290,7 +299,7 @@ class FourDimensionalData(abc.ABC):
     def __repr__(self):
         return f"{self.__class__.__name__} {self.shape} {self.file.stem}"
 
-    def __getitem__(self, ij):
+    def __getitem__(self, ij: ArrayLike):
         if not isinstance(ij, (tuple, list, np.ndarray)) or not len(ij) == 2:
             raise ValueError("ij should be iterable of array of ints (i, j).")
 
@@ -307,7 +316,7 @@ class FourDimensionalData(abc.ABC):
         )  # axes of ij_indexed and frame
         return np.reshape(tuple(self.read_frame(n)), shape_final).squeeze()
 
-    def plot(self, figsize=(12, 6), cmap="gray"):
+    def plot(self, figsize: Tuple[int, int] = (12, 6), cmap: str = "gray"):
         """Produce interactive figure to show data. Returns the widget."""
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
 
@@ -339,7 +348,9 @@ class FourDimensionalData(abc.ABC):
             orientation="horizontal",
         )
 
-        def update(ii, jj, log, clim, climrange):
+        def update(
+            ii: int, jj: int, log: bool, clim: bool, climrange: Tuple[float, float]
+        ):
             # change slider limits to avoid over reading data
             crosshair_vertical.set_xdata((jj, jj))
             crosshair_horizontal.set_ydata((ii, ii))
