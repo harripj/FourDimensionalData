@@ -421,10 +421,10 @@ class FourDimensionalData(abc.ABC):
         handler = {"blo": BLO, "tvips": TVIPS}
 
         fname = Path(fname)
-        ext = fname.suffix.strip(os.extsep)
+        ext = fname.suffix.strip(os.extsep).lower()
 
         if ext not in handler:
-            raise TypeError(
+            raise ValueError(
                 f"File format not supported. Supported formats are: {handler.keys()}."
             )
         return handler[ext](fname)

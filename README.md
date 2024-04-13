@@ -20,7 +20,7 @@ To open a file:
 ```python
 import FourDimensionalData
 
-data = FourDimensionalData("my_data.blo")
+data = FourDimensionalData.from_file("my_data.blo")
 ```
 
 ### Issues
