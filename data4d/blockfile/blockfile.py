@@ -3,7 +3,6 @@ import math
 from pathlib import Path
 from typing import Generator, Optional, Tuple, Union
 
-from KED.microscope import electron_wavelength
 from PySide2.QtCore import Signal
 from hyperspy.io_plugins.blockfile import get_header_dtype_list
 from hyperspy.misc.array_tools import sarray2dict
@@ -13,6 +12,7 @@ from scipy import constants
 from tqdm.auto import tqdm
 
 from ..base import FourDimensionalData
+from ..utils import electron_wavelength
 
 ENDIANESS = "<"
 FRAME_OFFSET = 6  # each frame has 6 byte offset
