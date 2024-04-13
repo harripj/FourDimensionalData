@@ -3,8 +3,34 @@ from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import ArrayLike, DTypeLike, NDArray
-from scipy import ndimage
+from scipy import constants, ndimage
 from skimage import feature
+
+
+def electron_wavelength(kV: float) -> float:
+    """
+    Calculate the electron wavelength with accelerating voltage V (kV).
+
+    Parameters
+    ----------
+    kV: float
+        Accelerating voltage in kV.
+
+    Returns
+    -------
+    lambda: float
+        Electron wavelength in Angstroms.
+    """
+
+    V = kV * constants.kilo  # conversion between kV and V
+    eV = constants.elementary_charge * V
+
+    wavelength = (
+        constants.Planck
+        * constants.c
+        / (eV * (2 * constants.electron_mass * constants.c**2 + eV)) ** 0.5
+    )
+    return wavelength / constants.angstrom
 
 
 def bin_box(
