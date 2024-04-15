@@ -1,10 +1,13 @@
 from itertools import product
+import logging
 from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import ArrayLike, DTypeLike, NDArray
 from scipy import constants, ndimage
 from skimage import feature
+
+logger = logging.getLogger()
 
 
 def electron_wavelength(kV: float) -> float:
