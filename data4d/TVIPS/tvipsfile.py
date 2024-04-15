@@ -9,7 +9,6 @@ import warnings
 
 from PySide2.QtCore import Signal
 import h5py
-from hyperspy.io_plugins import blockfile
 from ipywidgets import (
     Button,
     Checkbox,
@@ -23,6 +22,9 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+from rsciio.blockfile._api import get_default_header
+from rsciio.utils.date_time_tools import datetime_to_serial_date
+from rsciio.utils.tools import dict2sarray
 from scipy import signal
 from skimage.exposure import rescale_intensity
 from skimage.util import img_as_ubyte
@@ -307,10 +309,13 @@ class TVIPS(FourDimensionalData):
         out = list(map(self._check_input_file, sorted(out)))
 
         # check that first file has index 000
-        if int(out[0].stem.split("_")[-1]):
-            logging.info(
-                f"File does not appear to be initial experimental file (typically ends in 000: {fname}."
-            )
+        msg = f"File does not appear to be initial experimental file (typically ends in 000: {fname}."
+        try:
+            num = int(out[0].stem.split("_")[-1])
+            if num:
+                logging.info(msg)
+        except ValueError as exc:
+            logging.info(msg)
 
         return out
 
@@ -1184,7 +1189,7 @@ class TVIPS(FourDimensionalData):
         endianess: str = "<",
         **kwargs: dict[str, Any],
     ):
-        header = blockfile.get_default_header(endianess)
+        header = get_default_header(endianess)
         note = ""
 
         scan_shape = self.scan_shape
@@ -1231,9 +1236,8 @@ class TVIPS(FourDimensionalData):
         # read first frame and header to get acq. time
         frame, frame_header = self.read_frame(0, return_header=True)
         acq_time = datetime.fromtimestamp(frame_header["timestamp"])
-        header_sofar["Acquisition_time"] = blockfile.datetime_to_serial_date(acq_time)
-
-        header = blockfile.dict2sarray(header_sofar, sarray=header)
+        header_sofar["Acquisition_time"] = datetime_to_serial_date(acq_time)
+        header = dict2sarray(header_sofar, sarray=header)
 
         return header, note
 

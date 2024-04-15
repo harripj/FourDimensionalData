@@ -1,13 +1,12 @@
-# this code is based on the Hyperspy implementation
 import math
 from pathlib import Path
 from typing import Generator, Optional, Tuple, Union
 
 from PySide2.QtCore import Signal
-from hyperspy.io_plugins.blockfile import get_header_dtype_list
-from hyperspy.misc.array_tools import sarray2dict
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+from rsciio.blockfile._api import get_header_dtype_list
+from rsciio.utils.tools import sarray2dict
 from scipy import constants
 from tqdm.auto import tqdm
 

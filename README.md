@@ -7,7 +7,7 @@ include ASTAR .blo and TVIPS .tvips files.
 As the file sizes of these types of data may be several GB, the file data is is not loaded by default.
 The data is read and loaded to memory when requesting specific frames using generator parsing.
 
-This package is based on code parsers in [Hyperspy](https://github.com/din14970/TVIPSconverter) and [TVIPSconverter](https://github.com/din14970/TVIPSconverter).
+This package is based on code parsers in [RosettaSciIO](https://github.com/hyperspy/rosettasciio) and [TVIPSconverter](https://github.com/din14970/TVIPSconverter).
 
 ### Installation
 

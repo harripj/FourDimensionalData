@@ -27,6 +27,7 @@ test:
     - tests
   requires:
     - pytest
+    - hyperspy>=2
     
 about:
   home: https://github.com/harripj/FourDimensionalData

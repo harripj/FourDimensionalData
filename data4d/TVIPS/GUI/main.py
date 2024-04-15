@@ -1,20 +1,28 @@
-# fmt: off
 import math
 import os
 from pathlib import Path
 import sys
 
-import PySide2  # needed before Qt5 gets imported
-from PySide2.QtCore import QCoreApplication, QPointF, Qt, QThread, Signal
-from PySide2.QtWidgets import QApplication, QFileDialog, QMainWindow
 import numpy as np
-import pyqtgraph as pg
 from skimage import exposure
 
-# fmt: on
+from ...utils import logger
 
+try:
+    import PySide2  # needed before Qt5 gets imported
+    from PySide2.QtCore import QCoreApplication, QPointF, Qt, QThread, Signal
+    from PySide2.QtWidgets import QApplication, QFileDialog, QMainWindow
+except ImportError as exc:
+    logger.warning("PySide2 could not be imported")
+    raise exc
+try:
+    import pyqtgraph as pg
 
-pg.setConfigOptions(imageAxisOrder="row-major")  # default for numpy
+    pg.setConfigOptions(imageAxisOrder="row-major")  # default for numpy
+except ImportError as exc:
+    logger.warning("pyqtgraph could not be imported")
+    raise exc
+
 
 from ...utils import bin_box
 from ..tvipsfile import TVIPS
@@ -320,4 +328,3 @@ def main():
     window = TVIPSMainWindow()
     window.show()
     sys.exit(app.exec_())
-
